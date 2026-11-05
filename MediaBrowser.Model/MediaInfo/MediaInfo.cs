@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 using MediaBrowser.Model.Dto;
 using MediaBrowser.Model.Entities;
 
@@ -22,6 +23,12 @@ namespace MediaBrowser.Model.MediaInfo
         }
 
         public ChapterInfo[] Chapters { get; set; }
+
+        /// <summary>
+        /// Gets or sets the problems found with the file's streams, such as audio that ends early. Not stored or sent to clients.
+        /// </summary>
+        [JsonIgnore]
+        public IReadOnlyList<string> IntegrityWarnings { get; set; } = Array.Empty<string>();
 
         /// <summary>
         /// Gets or sets the album.

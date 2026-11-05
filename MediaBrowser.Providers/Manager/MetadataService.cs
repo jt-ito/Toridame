@@ -130,9 +130,12 @@ namespace MediaBrowser.Providers.Manager
                 // Run full image validation and register new local images
                 try
                 {
-                    if (ImageProvider.ValidateImages(item, allImageProviders.OfType<ILocalImageProvider>(), refreshOptions))
+                    using (ScanTimings.Measure(ScanStage.LocalImages))
                     {
-                        updateType |= ItemUpdateType.ImageUpdate;
+                        if (ImageProvider.ValidateImages(item, allImageProviders.OfType<ILocalImageProvider>(), refreshOptions))
+                        {
+                            updateType |= ItemUpdateType.ImageUpdate;
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -159,8 +162,12 @@ namespace MediaBrowser.Providers.Manager
             // Next run metadata providers
             if (refreshOptions.MetadataRefreshMode != MetadataRefreshMode.None)
             {
-                var providers = GetProviders(item, libraryOptions, refreshOptions, isFirstRefresh, requiresRefresh)
-                    .ToList();
+                List<IMetadataProvider> providers;
+                using (ScanTimings.Measure(ScanStage.ChangeCheck))
+                {
+                    providers = GetProviders(item, libraryOptions, refreshOptions, isFirstRefresh, requiresRefresh)
+                        .ToList();
+                }
 
                 if (providers.Count > 0 || isFirstRefresh || requiresRefresh)
                 {
@@ -182,7 +189,11 @@ namespace MediaBrowser.Providers.Manager
                     id.IsAutomated = refreshOptions.IsAutomated;
 
                     var hasMetadataSavers = ProviderManager.GetMetadataSavers(item, libraryOptions).Any();
-                    var result = await RefreshWithProviders(metadataResult, id, refreshOptions, providers, ImageProvider, hasMetadataSavers, cancellationToken).ConfigureAwait(false);
+                    RefreshResult result;
+                    using (ScanTimings.Measure(ScanStage.Providers))
+                    {
+                        result = await RefreshWithProviders(metadataResult, id, refreshOptions, providers, ImageProvider, hasMetadataSavers, cancellationToken).ConfigureAwait(false);
+                    }
 
                     updateType |= result.UpdateType;
                     if (result.Failures > 0)
@@ -203,7 +214,11 @@ namespace MediaBrowser.Providers.Manager
 
                 if (providers.Count > 0)
                 {
-                    var result = await ImageProvider.RefreshImages(itemOfType, libraryOptions, providers, refreshOptions, cancellationToken).ConfigureAwait(false);
+                    RefreshResult result;
+                    using (ScanTimings.Measure(ScanStage.RemoteImages))
+                    {
+                        result = await ImageProvider.RefreshImages(itemOfType, libraryOptions, providers, refreshOptions, cancellationToken).ConfigureAwait(false);
+                    }
 
                     updateType |= result.UpdateType;
                     if (result.Failures > 0)
@@ -230,7 +245,10 @@ namespace MediaBrowser.Providers.Manager
                     || refreshOptions.ImageRefreshMode == MetadataRefreshMode.FullRefresh;
             }
 
-            updateType = await SaveInternal(item, refreshOptions, updateType, isFirstRefresh, requiresRefresh, refreshStampNeedsSaving, metadataResult, cancellationToken).ConfigureAwait(false);
+            using (ScanTimings.Measure(ScanStage.SaveItem))
+            {
+                updateType = await SaveInternal(item, refreshOptions, updateType, isFirstRefresh, requiresRefresh, refreshStampNeedsSaving, metadataResult, cancellationToken).ConfigureAwait(false);
+            }
 
             await AfterMetadataRefresh(itemOfType, refreshOptions, cancellationToken).ConfigureAwait(false);
 

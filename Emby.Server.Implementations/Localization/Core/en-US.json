@@ -100,6 +100,8 @@
     "TaskCleanLogsDescription": "Deletes log files that are more than {0} days old.",
     "TaskRefreshPeople": "Refresh People",
     "TaskRefreshPeopleDescription": "Updates metadata for actors and directors in your media library.",
+    "TaskExtractSubtitles": "Extract Subtitles",
+    "TaskExtractSubtitlesDescription": "Extracts embedded text subtitles from videos in the background, so subtitles appear without delay when playback starts.",
     "TaskRefreshTrickplayImages": "Generate Trickplay Images",
     "TaskRefreshTrickplayImagesDescription": "Creates trickplay previews for videos in enabled libraries.",
     "TaskUpdatePlugins": "Update Plugins",

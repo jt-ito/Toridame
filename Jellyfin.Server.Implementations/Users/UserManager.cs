@@ -478,6 +478,7 @@ namespace Jellyfin.Server.Implementations.Users
                     GroupedFolders = user.GetPreferenceValues<Guid>(PreferenceKind.GroupedFolders),
                     MyMediaExcludes = user.GetPreferenceValues<Guid>(PreferenceKind.MyMediaExcludes),
                     LatestItemsExcludes = user.GetPreferenceValues<Guid>(PreferenceKind.LatestItemExcludes),
+                    DisableWatchHistory = user.GetPreference(PreferenceKind.DisableWatchHistory).Length > 0,
                     CastReceiverId = string.IsNullOrEmpty(user.CastReceiverId)
                         ? castReceiverApplications.FirstOrDefault()?.Id
                         : castReceiverApplications.FirstOrDefault(c => string.Equals(c.Id, user.CastReceiverId, StringComparison.Ordinal))?.Id
@@ -837,6 +838,7 @@ namespace Jellyfin.Server.Implementations.Users
                     user.SetPreference(PreferenceKind.GroupedFolders, config.GroupedFolders);
                     user.SetPreference(PreferenceKind.MyMediaExcludes, config.MyMediaExcludes);
                     user.SetPreference(PreferenceKind.LatestItemExcludes, config.LatestItemsExcludes);
+                    user.SetPreference(PreferenceKind.DisableWatchHistory, config.DisableWatchHistory ? new[] { "true" } : Array.Empty<string>());
 
                     dbContext.Update(user);
                     await dbContext.SaveChangesAsync().ConfigureAwait(false);

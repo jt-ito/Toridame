@@ -210,6 +210,16 @@ public class ServerConfiguration : BaseApplicationConfiguration
 
     public bool DisplaySpecialsWithinSeasons { get; set; } = true;
 
+    /// <summary>
+    /// Gets or sets a value indicating whether the Extract Subtitles task runs after every library scan.
+    /// </summary>
+    public bool ExtractSubtitlesAfterLibraryScan { get; set; } = false;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the scan logs a warning for videos whose audio or video stream ends early.
+    /// </summary>
+    public bool WarnAboutTruncatedStreams { get; set; } = false;
+
     public string[] CodecsUsed { get; set; } = Array.Empty<string>();
 
     public RepositoryInfo[] PluginRepositories { get; set; } = Array.Empty<RepositoryInfo>();

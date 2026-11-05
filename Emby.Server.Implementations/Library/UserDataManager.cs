@@ -6,8 +6,10 @@ using System.Globalization;
 using System.Linq;
 using System.Threading;
 using BitFaster.Caching.Lru;
+using Jellyfin.Data;
 using Jellyfin.Database.Implementations;
 using Jellyfin.Database.Implementations.Entities;
+using Jellyfin.Database.Implementations.Enums;
 using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Controller.Dto;
 using MediaBrowser.Controller.Entities;
@@ -54,6 +56,15 @@ namespace Emby.Server.Implementations.Library
             ArgumentNullException.ThrowIfNull(item);
 
             cancellationToken.ThrowIfCancellationRequested();
+
+            // Playback does not touch the history of users who turned it off. The caller already changed the
+            // cached object, so drop it and let the next read come from the database again.
+            if (reason is UserDataSaveReason.PlaybackStart or UserDataSaveReason.PlaybackProgress or UserDataSaveReason.PlaybackFinished
+                && user.GetPreference(PreferenceKind.DisableWatchHistory).Length > 0)
+            {
+                _cache.TryRemove(GetCacheKey(user.InternalId, item.Id));
+                return;
+            }
 
             var keys = item.GetUserDataKeys();
 

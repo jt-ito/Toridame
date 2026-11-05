@@ -96,6 +96,13 @@ public interface ITranscodeManager
     public void OnTranscodeEndRequest(TranscodingJob job);
 
     /// <summary>
+    /// Waits until no transcoding job is active, so background work can yield to playback.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>Task.</returns>
+    Task WaitForIdleAsync(CancellationToken cancellationToken);
+
+    /// <summary>
     /// Transcoding lock.
     /// </summary>
     /// <param name="outputPath">The output path of the transcoded file.</param>

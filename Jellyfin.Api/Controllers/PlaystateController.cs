@@ -1,6 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Api.Extensions;
 using Jellyfin.Api.Helpers;
@@ -11,6 +14,7 @@ using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.MediaEncoding;
 using MediaBrowser.Controller.Session;
 using MediaBrowser.Model.Dto;
+using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.Session;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -501,6 +505,61 @@ public class PlaystateController : BaseJellyfinApiController
         [FromQuery] string? liveStreamId,
         [FromQuery] string? playSessionId)
         => OnPlaybackStopped(itemId, mediaSourceId, nextMediaType, positionTicks, liveStreamId, playSessionId);
+
+    /// <summary>
+    /// Clears a user's watch history. Favorites and ratings are kept.
+    /// </summary>
+    /// <param name="userId">User id.</param>
+    /// <param name="continueWatchingOnly">Only clear resume points, leaving items marked as played.</param>
+    /// <response code="204">Watch history cleared.</response>
+    /// <response code="404">User not found.</response>
+    /// <returns>A <see cref="NoContentResult"/>, or a <see cref="NotFoundResult"/> if the user was not found.</returns>
+    [HttpDelete("UserItems/WatchHistory")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [Tags("UserData")]
+    public ActionResult ClearWatchHistory(
+        [FromQuery] Guid? userId,
+        [FromQuery] bool continueWatchingOnly = false)
+    {
+        userId = RequestHelpers.GetUserId(User, userId);
+        var user = _userManager.GetUserById(userId.Value);
+        if (user is null)
+        {
+            return NotFound();
+        }
+
+        IReadOnlyList<BaseItem> items = _libraryManager.GetItemList(new InternalItemsQuery(user) { IsResumable = true, Recursive = true });
+        if (!continueWatchingOnly)
+        {
+            items = items
+                .Concat(_libraryManager.GetItemList(new InternalItemsQuery(user) { IsPlayed = true, Recursive = true }))
+                .DistinctBy(i => i.Id)
+                .ToList();
+        }
+
+        foreach (var item in items)
+        {
+            var data = _userDataRepository.GetUserData(user, item);
+            if (data is null)
+            {
+                continue;
+            }
+
+            data.PlaybackPositionTicks = 0;
+            if (!continueWatchingOnly)
+            {
+                data.Played = false;
+                data.PlayCount = 0;
+                data.LastPlayedDate = null;
+            }
+
+            _userDataRepository.SaveUserData(user, item, data, UserDataSaveReason.TogglePlayed, CancellationToken.None);
+        }
+
+        _logger.LogInformation("Cleared {Count} watch history entries for user {UserId}", items.Count, user.Id);
+        return NoContent();
+    }
 
     /// <summary>
     /// Updates the played status.

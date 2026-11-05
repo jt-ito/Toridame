@@ -116,6 +116,8 @@ namespace MediaBrowser.MediaEncoding.Probing
                 .Where(i => i.Type != MediaStreamType.Subtitle || !string.IsNullOrWhiteSpace(i.Codec))
                 .ToList();
 
+            info.IntegrityWarnings = StreamIntegrityChecker.FindProblems(data);
+
             info.MediaAttachments = internalStreams.Select(GetMediaAttachment)
                 .Where(i => i is not null)
                 .ToList();
@@ -1276,7 +1278,7 @@ namespace MediaBrowser.MediaEncoding.Probing
             return null;
         }
 
-        private static double? GetRuntimeSecondsFromTags(MediaStreamInfo streamInfo)
+        internal static double? GetRuntimeSecondsFromTags(MediaStreamInfo streamInfo)
         {
             if (streamInfo?.Tags is null)
             {

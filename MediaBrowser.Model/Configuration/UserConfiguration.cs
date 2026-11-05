@@ -71,6 +71,11 @@ namespace MediaBrowser.Model.Configuration
         public bool EnableNextEpisodeAutoPlay { get; set; }
 
         /// <summary>
+        /// Gets or sets a value indicating whether playback is kept out of the user's watch history.
+        /// </summary>
+        public bool DisableWatchHistory { get; set; }
+
+        /// <summary>
         /// Gets or sets the id of the selected cast receiver.
         /// </summary>
         public string? CastReceiverId { get; set; }

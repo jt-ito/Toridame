@@ -97,6 +97,23 @@ public sealed class TranscodeManager : ITranscodeManager, IDisposable
     }
 
     /// <inheritdoc />
+    public async Task WaitForIdleAsync(CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            lock (_activeTranscodingJobs)
+            {
+                if (_activeTranscodingJobs.Count == 0)
+                {
+                    return;
+                }
+            }
+
+            await Task.Delay(TimeSpan.FromSeconds(30), cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    /// <inheritdoc />
     public TranscodingJob? GetTranscodingJob(string playSessionId)
     {
         lock (_activeTranscodingJobs)

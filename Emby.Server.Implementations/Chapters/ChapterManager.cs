@@ -18,6 +18,7 @@ using MediaBrowser.Model.Dto;
 using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Model.MediaInfo;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Emby.Server.Implementations.Chapters;
@@ -33,6 +34,7 @@ public class ChapterManager : IChapterManager
     private readonly IChapterRepository _chapterRepository;
     private readonly ILibraryManager _libraryManager;
     private readonly IPathManager _pathManager;
+    private readonly IServiceProvider _serviceProvider;
 
     /// <summary>
     /// The first chapter ticks.
@@ -48,14 +50,17 @@ public class ChapterManager : IChapterManager
     /// <param name="chapterRepository">The <see cref="IChapterRepository"/>.</param>
     /// <param name="libraryManager">The <see cref="ILibraryManager"/>.</param>
     /// <param name="pathManager">The <see cref="IPathManager"/>.</param>
+    /// <param name="serviceProvider">The <see cref="IServiceProvider"/>, used to reach the transcode manager without a dependency cycle.</param>
     public ChapterManager(
         ILogger<ChapterManager> logger,
         IFileSystem fileSystem,
         IMediaEncoder encoder,
         IChapterRepository chapterRepository,
         ILibraryManager libraryManager,
-        IPathManager pathManager)
+        IPathManager pathManager,
+        IServiceProvider serviceProvider)
     {
+        _serviceProvider = serviceProvider;
         _logger = logger;
         _fileSystem = fileSystem;
         _encoder = encoder;
@@ -158,6 +163,8 @@ public class ChapterManager : IChapterManager
                 if (extractImages)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
+
+                    await _serviceProvider.GetRequiredService<ITranscodeManager>().WaitForIdleAsync(cancellationToken).ConfigureAwait(false);
 
                     try
                     {

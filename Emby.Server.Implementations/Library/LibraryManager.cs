@@ -1491,20 +1491,38 @@ namespace Emby.Server.Implementations.Library
         {
             _logger.LogInformation("Validating media library");
 
-            await ValidateTopLibraryFolders(cancellationToken).ConfigureAwait(false);
+            ScanTimings.Reset();
+            var scanStart = Stopwatch.GetTimestamp();
 
-            var innerProgress = new Progress<double>(pct => progress.Report(pct * 0.96));
+            try
+            {
+                await ValidateTopLibraryFolders(cancellationToken).ConfigureAwait(false);
 
-            // Validate the entire media library
-            await RootFolder.ValidateChildren(innerProgress, new MetadataRefreshOptions(new DirectoryService(_fileSystem)), recursive: true, cancellationToken: cancellationToken).ConfigureAwait(false);
+                var innerProgress = new Progress<double>(pct => progress.Report(pct * 0.96));
 
-            progress.Report(96);
+                // Validate the entire media library
+                var itemsStart = Stopwatch.GetTimestamp();
+                await RootFolder.ValidateChildren(innerProgress, new MetadataRefreshOptions(new DirectoryService(_fileSystem)), recursive: true, cancellationToken: cancellationToken).ConfigureAwait(false);
+                _logger.LogInformation("Library scan validated all items in {Seconds:F0}s", Stopwatch.GetElapsedTime(itemsStart).TotalSeconds);
 
-            innerProgress = new Progress<double>(pct => progress.Report(96 + (pct * .04)));
+                progress.Report(96);
 
-            await RunPostScanTasks(innerProgress, cancellationToken).ConfigureAwait(false);
+                innerProgress = new Progress<double>(pct => progress.Report(96 + (pct * .04)));
 
-            progress.Report(100);
+                var postScanStart = Stopwatch.GetTimestamp();
+                await RunPostScanTasks(innerProgress, cancellationToken).ConfigureAwait(false);
+                _logger.LogInformation("Library scan post-scan tasks took {Seconds:F0}s", Stopwatch.GetElapsedTime(postScanStart).TotalSeconds);
+
+                progress.Report(100);
+            }
+            finally
+            {
+                // Stage times are summed over parallel workers, so they can add up to more than the wall-clock time.
+                _logger.LogInformation(
+                    "Library scan ended after {Seconds:F0}s. Time per stage as seconds/count: {Stages}",
+                    Stopwatch.GetElapsedTime(scanStart).TotalSeconds,
+                    ScanTimings.Summarize());
+            }
         }
 
         /// <summary>

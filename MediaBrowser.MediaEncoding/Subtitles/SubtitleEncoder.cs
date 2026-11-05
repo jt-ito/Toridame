@@ -520,7 +520,7 @@ namespace MediaBrowser.MediaEncoding.Subtitles
         }
 
         /// <inheritdoc />
-        public async Task ExtractAllExtractableSubtitles(MediaSourceInfo mediaSource, CancellationToken cancellationToken)
+        public async Task ExtractAllExtractableSubtitles(MediaSourceInfo mediaSource, CancellationToken cancellationToken, bool lowPriority = false, bool textOnly = false)
         {
             var locks = new List<IDisposable>();
             var extractableStreams = new List<MediaStream>();
@@ -528,7 +528,8 @@ namespace MediaBrowser.MediaEncoding.Subtitles
             try
             {
                 var subtitleStreams = mediaSource.MediaStreams
-                    .Where(stream => stream is { IsExtractableSubtitleStream: true, SupportsExternalStream: true });
+                    .Where(stream => stream is { IsExtractableSubtitleStream: true, SupportsExternalStream: true }
+                        && (!textOnly || stream.IsTextSubtitleStream));
 
                 foreach (var subtitleStream in subtitleStreams)
                 {
@@ -559,8 +560,8 @@ namespace MediaBrowser.MediaEncoding.Subtitles
 
                 if (extractableStreams.Count > 0)
                 {
-                    await ExtractAllExtractableSubtitlesInternal(mediaSource, extractableStreams, cancellationToken).ConfigureAwait(false);
-                    await ExtractAllExtractableSubtitlesMKS(mediaSource, extractableStreams, cancellationToken).ConfigureAwait(false);
+                    await ExtractAllExtractableSubtitlesInternal(mediaSource, extractableStreams, cancellationToken, lowPriority).ConfigureAwait(false);
+                    await ExtractAllExtractableSubtitlesMKS(mediaSource, extractableStreams, cancellationToken, lowPriority).ConfigureAwait(false);
                 }
             }
             catch (Exception ex)
@@ -576,7 +577,8 @@ namespace MediaBrowser.MediaEncoding.Subtitles
         private async Task ExtractAllExtractableSubtitlesMKS(
            MediaSourceInfo mediaSource,
            List<MediaStream> subtitleStreams,
-           CancellationToken cancellationToken)
+           CancellationToken cancellationToken,
+           bool lowPriority)
         {
             var mksFiles = new List<string>();
 
@@ -643,7 +645,7 @@ namespace MediaBrowser.MediaEncoding.Subtitles
                         outputPath.EscapeProcessArgument());
                 }
 
-                await ExtractSubtitlesForFile(inputPath, args, outputPaths, cancellationToken).ConfigureAwait(false);
+                await ExtractSubtitlesForFile(inputPath, args, outputPaths, cancellationToken, lowPriority).ConfigureAwait(false);
 
                 foreach (var outputPath in outputPaths)
                 {
@@ -655,7 +657,8 @@ namespace MediaBrowser.MediaEncoding.Subtitles
         private async Task ExtractAllExtractableSubtitlesInternal(
             MediaSourceInfo mediaSource,
             List<MediaStream> subtitleStreams,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            bool lowPriority)
         {
             var inputPath = _mediaEncoder.GetInputPathArgument(mediaSource.Path, mediaSource);
             var outputPaths = new List<string>();
@@ -703,7 +706,7 @@ namespace MediaBrowser.MediaEncoding.Subtitles
 
             if (outputPaths.Count > 0)
             {
-                await ExtractSubtitlesForFile(inputPath, args, outputPaths, cancellationToken).ConfigureAwait(false);
+                await ExtractSubtitlesForFile(inputPath, args, outputPaths, cancellationToken, lowPriority).ConfigureAwait(false);
 
                 foreach (var outputPath in outputPaths)
                 {
@@ -716,9 +719,10 @@ namespace MediaBrowser.MediaEncoding.Subtitles
             string inputPath,
             string args,
             IReadOnlyList<string> outputPaths,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            bool lowPriority = false)
         {
-            var (exitCode, ffmpegError) = await RunSubtitleExtractionProcess(args, cancellationToken).ConfigureAwait(false);
+            var (exitCode, ffmpegError) = await RunSubtitleExtractionProcess(args, cancellationToken, lowPriority).ConfigureAwait(false);
 
             var failed = false;
 
@@ -869,8 +873,9 @@ namespace MediaBrowser.MediaEncoding.Subtitles
         /// </remarks>
         /// <param name="arguments">The ffmpeg command line arguments.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
+        /// <param name="lowPriority">Whether to run ffmpeg at below-normal priority.</param>
         /// <returns>The ffmpeg exit code (-1 on timeout) and its captured stderr output.</returns>
-        private async Task<(int ExitCode, string StandardError)> RunSubtitleExtractionProcess(string arguments, CancellationToken cancellationToken)
+        private async Task<(int ExitCode, string StandardError)> RunSubtitleExtractionProcess(string arguments, CancellationToken cancellationToken, bool lowPriority = false)
         {
             int exitCode;
             var standardError = string.Empty;
@@ -901,6 +906,19 @@ namespace MediaBrowser.MediaEncoding.Subtitles
                 {
                     _logger.LogError(ex, "Error starting ffmpeg");
                     throw;
+                }
+
+                if (lowPriority)
+                {
+                    try
+                    {
+                        process.PriorityClass = ProcessPriorityClass.BelowNormal;
+                    }
+                    catch (Exception ex)
+                    {
+                        // Process may have exited already, or the platform may refuse; not worth failing extraction.
+                        _logger.LogDebug(ex, "Unable to lower ffmpeg priority for subtitle extraction");
+                    }
                 }
 
                 // Close stdin so ffmpeg observes EOF instead of blocking on an inherited handle.

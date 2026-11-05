@@ -385,11 +385,32 @@ namespace MediaBrowser.MediaEncoding.Attachments
                 throw new ResourceNotFoundException($"MediaSource {mediaSource.Id} has no attachment cache (non-GUID Id, e.g. Live TV stream).");
             }
 
+            var indexName = mediaAttachment.Index.ToString(CultureInfo.InvariantCulture);
+            var attachmentPath = _pathManager.GetAttachmentPath(mediaSource.Id, mediaAttachment.FileName ?? indexName)
+                                 ?? _pathManager.GetAttachmentPath(mediaSource.Id, indexName)!;
+
             using (await _semaphoreLocks.LockAsync(attachmentFolderPath, cancellationToken).ConfigureAwait(false))
             {
-                var indexName = mediaAttachment.Index.ToString(CultureInfo.InvariantCulture);
-                var attachmentPath = _pathManager.GetAttachmentPath(mediaSource.Id, mediaAttachment.FileName ?? indexName)
-                                     ?? _pathManager.GetAttachmentPath(mediaSource.Id, indexName)!;
+                if (File.Exists(attachmentPath))
+                {
+                    return attachmentPath;
+                }
+            }
+
+            // A client asks for every font of a file at once. One ffmpeg run per font made the last ones wait
+            // for all the others, about half a second each, so take them all out in a single run instead.
+            // The run keeps the lock for itself, so it can't be started from inside the lock above or below.
+            try
+            {
+                await ExtractAllAttachments(inputFile, mediaSource, cancellationToken).ConfigureAwait(false);
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Extracting all attachments of {InputFile} in one run failed, extracting attachment {Index} on its own", inputFile, indexName);
+            }
+
+            using (await _semaphoreLocks.LockAsync(attachmentFolderPath, cancellationToken).ConfigureAwait(false))
+            {
                 if (!File.Exists(attachmentPath))
                 {
                     await ExtractAttachmentInternal(

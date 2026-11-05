@@ -59,7 +59,9 @@ namespace MediaBrowser.Controller.MediaEncoding
         /// </summary>
         /// <param name="mediaSource">The mediaSource.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
+        /// <param name="lowPriority">Run ffmpeg at below-normal priority (for background callers).</param>
+        /// <param name="textOnly">Skip image-based subtitles (pgs, vobsub); they are extracted on first use instead.</param>
         /// <returns>Task.</returns>
-        Task ExtractAllExtractableSubtitles(MediaSourceInfo mediaSource, CancellationToken cancellationToken);
+        Task ExtractAllExtractableSubtitles(MediaSourceInfo mediaSource, CancellationToken cancellationToken, bool lowPriority = false, bool textOnly = false);
     }
 }

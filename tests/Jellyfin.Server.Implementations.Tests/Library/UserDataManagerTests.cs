@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using Emby.Server.Implementations.Library;
+using Jellyfin.Data;
 using Jellyfin.Database.Implementations;
 using Jellyfin.Database.Implementations.Entities;
+using Jellyfin.Database.Implementations.Enums;
 using Jellyfin.Database.Implementations.Locking;
 using Jellyfin.Database.Providers.Sqlite;
 using MediaBrowser.Controller.Configuration;
@@ -245,6 +247,33 @@ public sealed class UserDataManagerTests : IDisposable
                 Assert.Equal(0, row.PlaybackPositionTicks);
             });
         }
+    }
+
+    [Theory]
+    [InlineData(UserDataSaveReason.PlaybackProgress, true)]
+    [InlineData(UserDataSaveReason.PlaybackFinished, true)]
+    [InlineData(UserDataSaveReason.TogglePlayed, false)]
+    public void SaveUserData_WatchHistoryDisabled_OnlyPlaybackIsSkipped(UserDataSaveReason reason, bool skipped)
+    {
+        var item = CreateAudioBook();
+        _user.SetPreference(PreferenceKind.DisableWatchHistory, new[] { "true" });
+
+        using (var ctx = CreateDbContext())
+        {
+            ctx.Users.Add(_user);
+            ctx.BaseItems.Add(new BaseItemEntity { Id = item.Id, Type = typeof(AudioBook).FullName! });
+            ctx.SaveChanges();
+        }
+
+        _userDataManager.SaveUserData(
+            _user,
+            item,
+            new UserItemData { Key = item.GetUserDataKeys()[0], PlaybackPositionTicks = 500 },
+            reason,
+            CancellationToken.None);
+
+        using var verify = CreateDbContext();
+        Assert.Equal(!skipped, verify.UserData.Any(e => e.ItemId.Equals(item.Id)));
     }
 
     [Fact]

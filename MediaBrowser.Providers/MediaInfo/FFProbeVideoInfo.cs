@@ -152,7 +152,7 @@ namespace MediaBrowser.Providers.MediaInfo
             return ItemUpdateType.MetadataImport;
         }
 
-        private Task<Model.MediaInfo.MediaInfo> GetMediaInfo(
+        private async Task<Model.MediaInfo.MediaInfo> GetMediaInfo(
             Video item,
             CancellationToken cancellationToken)
         {
@@ -167,20 +167,23 @@ namespace MediaBrowser.Providers.MediaInfo
                 protocol = _mediaSourceManager.GetPathProtocol(path);
             }
 
-            return _mediaEncoder.GetMediaInfo(
-                new MediaInfoRequest
-                {
-                    ExtractChapters = true,
-                    MediaType = DlnaProfileType.Video,
-                    MediaSource = new MediaSourceInfo
+            using (ScanTimings.Measure(ScanStage.Ffprobe))
+            {
+                return await _mediaEncoder.GetMediaInfo(
+                    new MediaInfoRequest
                     {
-                        Path = path,
-                        Protocol = protocol,
-                        VideoType = item.VideoType,
-                        IsoType = item.IsoType
-                    }
-                },
-                cancellationToken);
+                        ExtractChapters = true,
+                        MediaType = DlnaProfileType.Video,
+                        MediaSource = new MediaSourceInfo
+                        {
+                            Path = path,
+                            Protocol = protocol,
+                            VideoType = item.VideoType,
+                            IsoType = item.IsoType
+                        }
+                    },
+                    cancellationToken).ConfigureAwait(false);
+            }
         }
 
         protected async Task Fetch(
@@ -208,6 +211,14 @@ namespace MediaBrowser.Providers.MediaInfo
                 if (videoType == VideoType.BluRay || videoType == VideoType.Dvd)
                 {
                     video.Size = mediaInfo.Size;
+                }
+
+                if (_config.Configuration.WarnAboutTruncatedStreams)
+                {
+                    foreach (var warning in mediaInfo.IntegrityWarnings)
+                    {
+                        _logger.LogWarning("Possibly broken file {Path}: {Problem}", video.Path, warning);
+                    }
                 }
 
                 chapters = mediaInfo.Chapters ?? [];

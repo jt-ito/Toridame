@@ -23,6 +23,7 @@ using MediaBrowser.Model.Configuration;
 using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.IO;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Server.Implementations.Trickplay;
@@ -41,6 +42,7 @@ public partial class TrickplayManager : ITrickplayManager
     private readonly IDbContextFactory<JellyfinDbContext> _dbProvider;
     private readonly IApplicationPaths _appPaths;
     private readonly IPathManager _pathManager;
+    private readonly IServiceProvider _serviceProvider;
 
     private static readonly AsyncNonKeyedLocker _resourcePool = new(1);
     private static readonly string[] _trickplayImgExtensions = [".jpg"];
@@ -57,6 +59,7 @@ public partial class TrickplayManager : ITrickplayManager
     /// <param name="dbProvider">The database provider.</param>
     /// <param name="appPaths">The application paths.</param>
     /// <param name="pathManager">The path manager.</param>
+    /// <param name="serviceProvider">The service provider, used to reach the transcode manager, which depends on this class.</param>
     public TrickplayManager(
         ILogger<TrickplayManager> logger,
         IMediaEncoder mediaEncoder,
@@ -66,8 +69,10 @@ public partial class TrickplayManager : ITrickplayManager
         IImageEncoder imageEncoder,
         IDbContextFactory<JellyfinDbContext> dbProvider,
         IApplicationPaths appPaths,
-        IPathManager pathManager)
+        IPathManager pathManager,
+        IServiceProvider serviceProvider)
     {
+        _serviceProvider = serviceProvider;
         _logger = logger;
         _mediaEncoder = mediaEncoder;
         _fileSystem = fileSystem;
@@ -486,6 +491,8 @@ public partial class TrickplayManager : ITrickplayManager
                     Directory.CreateDirectory(outputDir.FullName);
                     FileHelper.CreateEmpty(Path.Combine(outputDir.FullName, ".jellyfin-trickplay"));
                 }
+
+                await _serviceProvider.GetRequiredService<ITranscodeManager>().WaitForIdleAsync(cancellationToken).ConfigureAwait(false);
 
                 _logger.LogInformation("Creating trickplay files at {Width} width, for {Path} [ID: {ItemId}]", actualWidth, mediaPath, video.Id);
                 imgTempDir = await _mediaEncoder.ExtractVideoImagesOnIntervalAccelerated(

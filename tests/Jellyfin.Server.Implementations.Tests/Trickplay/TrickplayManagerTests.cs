@@ -37,6 +37,7 @@ public sealed class TrickplayManagerTests : SqliteDbTestFixture
             null!,
             factory.Object,
             null!,
+            null!,
             null!);
 
         await trickplayManager.DeleteTrickplayDataAsync(Guid.NewGuid(), CancellationToken.None);

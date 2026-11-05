@@ -68,5 +68,10 @@ public enum PreferenceKind
     /// <summary>
     /// A list of allowed tags.
     /// </summary>
-    AllowedTags = 12
+    AllowedTags = 12,
+
+    /// <summary>
+    /// Set (to any value) when playback should not be recorded in the user's watch history.
+    /// </summary>
+    DisableWatchHistory = 13
 }

@@ -435,7 +435,10 @@ namespace MediaBrowser.Controller.Entities
                 {
                     // Finish enumeration before mutating the library. An I/O failure, including
                     // one partway through a lazy enumeration, must not look like removed files.
-                    nonCachedChildren = GetNonCachedChildren(directoryService).ToArray();
+                    using (ScanTimings.Measure(ScanStage.Enumerate))
+                    {
+                        nonCachedChildren = GetNonCachedChildren(directoryService).ToArray();
+                    }
                 }
                 catch (IOException ex)
                 {
@@ -497,14 +500,20 @@ namespace MediaBrowser.Controller.Entities
                         validChildren.Add(currentChild);
                         accessibleChildren.Add(currentChild);
 
-                        if (currentChild.UpdateFromResolvedItem(child) > ItemUpdateType.None)
+                        using (ScanTimings.Measure(ScanStage.ExistingItems))
                         {
-                            await currentChild.UpdateToRepositoryAsync(ItemUpdateType.MetadataImport, cancellationToken).ConfigureAwait(false);
-                        }
-                        else
-                        {
-                            // metadata is up-to-date; make sure DB has correct images dimensions and hash
-                            await LibraryManager.UpdateImagesAsync(currentChild).ConfigureAwait(false);
+                            if (currentChild.UpdateFromResolvedItem(child) > ItemUpdateType.None)
+                            {
+                                await currentChild.UpdateToRepositoryAsync(ItemUpdateType.MetadataImport, cancellationToken).ConfigureAwait(false);
+                            }
+                            else
+                            {
+                                // metadata is up-to-date; make sure DB has correct images dimensions and hash
+                                using (ScanTimings.Measure(ScanStage.ExistingItemImages))
+                                {
+                                    await LibraryManager.UpdateImagesAsync(currentChild).ConfigureAwait(false);
+                                }
+                            }
                         }
 
                         continue;
@@ -607,7 +616,10 @@ namespace MediaBrowser.Controller.Entities
 
                 if (newItems.Count > 0)
                 {
-                    LibraryManager.CreateItems(newItems, this, cancellationToken);
+                    using (ScanTimings.Measure(ScanStage.CreateItems))
+                    {
+                        LibraryManager.CreateItems(newItems, this, cancellationToken);
+                    }
                 }
 
                 // Process deferred replaced-primary deletions now that new primaries exist in DB/cache.
