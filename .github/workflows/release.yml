@@ -75,7 +75,9 @@ jobs:
       - name: Windows installer (.exe)
         if: matrix.kind == 'win'
         run: |
-          choco install innosetup -y --no-progress
+          choco install innosetup -y --no-progress || true
+          # Git Bash would otherwise rewrite the /D... switches as if they were paths.
+          export MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*'
           "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" \
             "/DAppVersion=$VERSION" \
             "/DSourceDir=$(cygpath -w "$PWD/out/stage/toridame")" \
@@ -90,6 +92,7 @@ jobs:
 
   publish:
     needs: build
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
