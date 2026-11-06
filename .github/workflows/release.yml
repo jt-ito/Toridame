@@ -1,6 +1,5 @@
 name: Release builds
 # Builds portable archives and installers for Windows, macOS and Linux and attaches them to the GitHub release.
-# Needs a repository secret WEB_REPO_TOKEN: a token that can read the private jt-ito/Toridame-web repository.
 on:
   push:
     tags: ['v*']
@@ -24,7 +23,6 @@ jobs:
         with:
           repository: jt-ito/Toridame-web
           ref: ${{ env.TAG }}
-          token: ${{ secrets.WEB_REPO_TOKEN }}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
