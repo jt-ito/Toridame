@@ -1,0 +1,108 @@
+name: Release builds
+# Builds portable archives and installers for Windows, macOS and Linux and attaches them to the GitHub release.
+# Needs a repository secret WEB_REPO_TOKEN: a token that can read the private jt-ito/Toridame-web repository.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to build and attach to (for example v12.4.1)
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: jt-ito/Toridame-web
+          ref: ${{ env.TAG }}
+          token: ${{ secrets.WEB_REPO_TOKEN }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build:production
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: dist
+
+  build:
+    needs: web
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, rid: win-x64, kind: win }
+          - { os: macos-latest, rid: osx-arm64, kind: mac }
+          - { os: macos-latest, rid: osx-x64, kind: mac }
+          - { os: ubuntu-latest, rid: linux-x64, kind: linux }
+          - { os: ubuntu-latest, rid: linux-arm64, kind: linux }
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: web-dist
+      - name: Version
+        run: echo "VERSION=${TAG#v}" >> "$GITHUB_ENV"
+
+      - name: Portable build
+        run: bash deployment/toridame/package.sh "${{ matrix.rid }}" "$VERSION" "$PWD/web-dist" "$PWD/out"
+
+      - name: Linux installer (.deb)
+        if: matrix.kind == 'linux'
+        run: bash deployment/toridame/installer-linux.sh "${{ matrix.rid }}" "$VERSION" "$PWD/out"
+
+      - name: macOS installer (.dmg)
+        if: matrix.kind == 'mac'
+        run: bash deployment/toridame/installer-mac.sh "${{ matrix.rid }}" "$VERSION" "$PWD/out" "$PWD/web-dist/assets/toridame/icon-512.png"
+
+      - name: Windows installer (.exe)
+        if: matrix.kind == 'win'
+        run: |
+          choco install innosetup -y --no-progress
+          "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" \
+            "/DAppVersion=$VERSION" \
+            "/DSourceDir=$(cygpath -w "$PWD/out/stage/toridame")" \
+            "/DOutDir=$(cygpath -w "$PWD/out/files")" \
+            "/DIconFile=$(cygpath -w "$PWD/web-dist/assets/toridame/favicon.ico")" \
+            deployment/toridame/toridame.iss
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: files-${{ matrix.rid }}
+          path: out/files/*
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: files-*
+          path: files
+          merge-multiple: true
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+            || gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "Toridame ${TAG#v}" --notes "Toridame ${TAG#v}"
+          gh release upload "$TAG" files/* --repo "$GITHUB_REPOSITORY" --clobber

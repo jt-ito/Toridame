@@ -25,6 +25,18 @@ The web client lives in a separate repository: [Toridame-web](https://github.com
 **Stability**
 - A startup fix for a dependency cycle between the transcode manager and the trickplay and chapter managers.
 
+## Downloads
+
+Each [release](https://github.com/jt-ito/Toridame/releases) has builds with the web client and Jellyfin's ffmpeg included:
+
+| | Installer | Portable |
+|---|---|---|
+| Windows (x64) | `toridame-<version>-win-x64-setup.exe` | `...-win-x64-portable.zip` |
+| macOS (Apple Silicon, Intel) | `toridame-<version>-osx-<arch>.dmg` | `...-osx-<arch>-portable.tar.gz` |
+| Linux (x64, arm64) | `toridame_<version>_<arch>.deb` (runs as the `toridame` service) | `...-linux-<arch>-portable.tar.gz` |
+
+Portable builds keep all their data in their own folder (start with `run.cmd` or `run.sh`). The macOS app is not notarized, so the first time, right-click it and choose Open. The default port is 8096.
+
 ## Building
 
 Requires the .NET 10 SDK.
