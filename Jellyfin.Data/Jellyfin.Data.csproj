@@ -18,8 +18,8 @@
   <PropertyGroup>
     <Authors>Jellyfin Contributors</Authors>
     <PackageId>Jellyfin.Data</PackageId>
-    <VersionPrefix>12.4.0</VersionPrefix>
-    <RepositoryUrl>https://github.com/jellyfin/jellyfin</RepositoryUrl>
+    <VersionPrefix>12.4.1</VersionPrefix>
+    <RepositoryUrl>https://github.com/jt-ito/Toridame</RepositoryUrl>
     <PackageLicenseExpression>GPL-3.0-only</PackageLicenseExpression>
   </PropertyGroup>
 

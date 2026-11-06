@@ -1,0 +1,11 @@
+services:
+  toridame:
+    image: jteaito/toridame:latest
+    container_name: toridame
+    restart: unless-stopped
+    ports:
+      - "8096:8096"
+    volumes:
+      - ./config:/config
+      - ./cache:/cache
+      - /mnt/sda1/Choows:/media:ro

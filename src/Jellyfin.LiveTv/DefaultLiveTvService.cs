@@ -73,7 +73,7 @@ namespace Jellyfin.LiveTv
         public string Name => ServiceName;
 
         /// <inheritdoc />
-        public string HomePageUrl => "https://github.com/jellyfin/jellyfin";
+        public string HomePageUrl => "https://github.com/jt-ito/Toridame";
 
         public async Task RefreshSeriesTimers(CancellationToken cancellationToken)
         {

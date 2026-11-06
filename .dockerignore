@@ -1,11 +1,8 @@
 .git
-.dockerignore
-Dockerfile
-Dockerfile.arm
-Dockerfile.arm64
+**/bin
+**/obj
+tests
+fuzz
 CONTRIBUTORS.md
 README.md
-deployment/*/dist
-deployment/*/pkg-dist
-deployment/collect-dist/
-ci/
+deployment
